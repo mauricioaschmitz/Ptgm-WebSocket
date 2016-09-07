@@ -16,4 +16,4 @@ require_once "ws-comunicacao.php";
         8080
     );
 
-    $server->run();
+$server->run();

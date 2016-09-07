@@ -78,17 +78,17 @@ class Comunicacao implements MessageComponentInterface {
                 //echo $mensagem;
                 foreach ($this->clientes as $client) {
                     if ($client->remoteAddress === $ip) {
-                        if($comando === "capture"){
-                          $this->capturasEnviadas = $this->capturasEnviadas + 1;
-                          echo "Enviou Captura: {$this->capturasEnviadas}\n";
-                          if ($ip === "192.168.1.101") {
-                              $this->modulo1 = $this->modulo1 + 1;
-                              echo "Capturas Enviadas Modulo1: {$this->modulo1}\n";
-                          }
-                          if ($ip === "192.168.1.102") {
-                              $this->modulo2 = $this->modulo2 + 1;
-                              echo "Capturas Enviadas Modulo2: {$this->modulo2}\n";
-                          }
+                        if ($comando === "capture") {
+                            $this->capturasEnviadas = $this->capturasEnviadas + 1;
+                            echo "Enviou Captura: {$this->capturasEnviadas}\n";
+                            if ($ip === "192.168.1.101") {
+                                $this->modulo1 = $this->modulo1 + 1;
+                                echo "Capturas Enviadas Modulo1: {$this->modulo1}\n";
+                            }
+                            if ($ip === "192.168.1.102") {
+                                $this->modulo2 = $this->modulo2 + 1;
+                                echo "Capturas Enviadas Modulo2: {$this->modulo2}\n";
+                            }
                         }
                         $client->send($comando . ":" . $mensagem);
                     }
