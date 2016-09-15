@@ -48,12 +48,14 @@ class Comunicacao implements MessageComponentInterface {
                         if ($modulo->num_rows > 0) {
                             $idModulo = mysqli_fetch_assoc($modulo);
                             //echo "\nModulo = {$idModulo['idModulo']}\n";
-                            $tomada = mysqli_query($conn, "SELECT codTomada, limiteFase, limiteFuga FROM tomada WHERE codModulo = {$idModulo['idModulo']}");
+                            $tomada = mysqli_query($conn, "SELECT codTomada, limiteFase, limiteFuga, limiteStandByFase, limiteStandByFuga FROM tomada WHERE codModulo = {$idModulo['idModulo']}");
                             if ($tomada->num_rows > 0) {
                                 while ($dados = mysqli_fetch_assoc($tomada)) {
                                     //echo "Tomada = {$dados['codTomada']}\n";
                                     $from->send("setLimit:" . $dados['codTomada'] . ":p:" . $dados['limiteFase']);
                                     $from->send("setLimit:" . $dados['codTomada'] . ":d:" . $dados['limiteFuga']);
+                                    $from->send("setStandByLimit:" . $dados['codTomada'] . ":p:" . $dados['limiteStandByFase']);
+                                    $from->send("setStandByLimit:" . $dados['codTomada'] . ":d:" . $dados['limiteStandByFuga']);
                                 }
                             } else {
                                 throw new Exception("Tomada nao encontrada!\n");
@@ -71,24 +73,55 @@ class Comunicacao implements MessageComponentInterface {
                     echo $e->getMessage();
                 }
             }
-            if ($comando === "capture" || $comando === "setLimit") {
+            if ($comando === "setLimit") {
+                $ip = antes(":", $mensagem);
+                $mensagem = depois(":", $mensagem);
+                $equipment = antes(":", $mensagem);
+                $tomada = depois(":", $mensagem);
+                try {
+                    $conn = mysqli_connect("localhost", "root", "senha.123", "protegemed");
+                    if ($conn) {
+                        $limites = mysqli_query($conn, "SELECT limiteFase, limiteFuga, limiteStandByFase, limiteStandByFuga FROM equipamento WHERE codEquip = '{$equipment}'");
+                        if ($limites->num_rows > 0) {
+                            while ($dados = mysqli_fetch_assoc($limites)) {
+                                foreach ($this->clientes as $client) {
+                                    if ($client->remoteAddress === $ip) {
+                                        $client->send("setLimit:" . $tomada . ":p:" . $dados['limiteFase']);
+                                        $client->send("setLimit:" . $tomada . ":d:" . $dados['limiteFuga']);
+                                        $client->send("setStandByLimit:" . $tomada . ":p:" . $dados['limiteStandByFase']);
+                                        $client->send("setStandByLimit:" . $tomada . ":d:" . $dados['limiteStandByFuga']);
+                                    }
+                                }
+                            }
+                        } else {
+                            throw new Exception("Limites nao encontrados!\n");
+                        }
+                        mysqli_close($conn);
+                    } else {
+                        throw new Exception("Erro: nao foi possivel se conectar ao banco de dados!" . PHP_EOL
+                        . "Debugging errno: " . mysqli_connect_errno() . PHP_EOL
+                        . "Debugging error: " . mysqli_connect_error() . PHP_EOL);
+                    }
+                } catch (Exception $e) {
+                    echo $e->getMessage();
+                }
+            }
+            if ($comando === "capture") {
                 $ip = antes(":", $mensagem);
                 $mensagem = depois(":", $mensagem);
                 //echo $ip;
                 //echo $mensagem;
                 foreach ($this->clientes as $client) {
                     if ($client->remoteAddress === $ip) {
-                        if($comando === "capture"){
-                          $this->capturasEnviadas = $this->capturasEnviadas + 1;
-                          echo "Enviou Captura: {$this->capturasEnviadas}\n";
-                          if ($ip === "192.168.1.101") {
-                              $this->modulo1 = $this->modulo1 + 1;
-                              echo "Capturas Enviadas Modulo1: {$this->modulo1}\n";
-                          }
-                          if ($ip === "192.168.1.102") {
-                              $this->modulo2 = $this->modulo2 + 1;
-                              echo "Capturas Enviadas Modulo2: {$this->modulo2}\n";
-                          }
+                        $this->capturasEnviadas = $this->capturasEnviadas + 1;
+                        echo "Enviou Captura: {$this->capturasEnviadas}\n";
+                        if ($ip === "192.168.1.101") {
+                            $this->modulo1 = $this->modulo1 + 1;
+                            echo "Capturas Enviadas Modulo1: {$this->modulo1}\n";
+                        }
+                        if ($ip === "192.168.1.102") {
+                            $this->modulo2 = $this->modulo2 + 1;
+                            echo "Capturas Enviadas Modulo2: {$this->modulo2}\n";
                         }
                         $client->send($comando . ":" . $mensagem);
                     }

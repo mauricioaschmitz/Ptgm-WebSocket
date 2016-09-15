@@ -1,6 +1,6 @@
 <?php
 
-require dirname(__DIR__) . '/WebSocket/vendor/autoload.php';
+require dirname(__DIR__) . '/Ptgm-WebSocket/vendor/autoload.php';
 
 use Ratchet\Server\IoServer;
 use Ratchet\Http\HttpServer;
@@ -16,4 +16,4 @@ require_once "ws-comunicacao.php";
         8080
     );
 
-    $server->run();
+$server->run();
