@@ -8,14 +8,10 @@ require_once("include/funcoes.php");
 
 class Comunicacao implements MessageComponentInterface {
 
-    protected $clientes, $capturasEnviadas, $modulo1, $modulo2, $capturasEnviadasBanco;
+    protected $clientes;
 
     public function __construct() {
         $this->clientes = new \SplObjectStorage;
-        $this->capturasEnviadas = 0;
-        $this->modulo1 = 0;
-        $this->modulo2 = 0;
-        $this->capturasEnviadasBanco = 0;
     }
 
     public function onOpen(ConnectionInterface $conn) {
@@ -27,17 +23,17 @@ class Comunicacao implements MessageComponentInterface {
     }
 
     public function onMessage(ConnectionInterface $from, $msgRecebida) {
-        echo "Mensagem Recebida: {$msgRecebida}\n";
+        //echo "Mensagem Recebida: {$msgRecebida}\n";
         $msg = examinaMensagem($msgRecebida);
         if ($msg !== false) {
             $comando = $msg['comando'];
             $mensagem = $msg['mensagem'];
+
             if ($comando === "InsertCaptureDB") {
+
                 $fp = fsockopen('localhost', 80);
                 $response = fwrite($fp, $mensagem);
                 fclose($fp);
-                $this->capturasEnviadasBanco = $this->capturasEnviadasBanco + 1;
-                echo "Enviou Captura Banco: {$this->capturasEnviadasBanco}\n";
                 //echo "Caracteres Enviados para o Capture inserir no banco: " . $response . "\n";
             }
             if ($comando === "MBEDStart") {
@@ -47,6 +43,11 @@ class Comunicacao implements MessageComponentInterface {
                         $modulo = mysqli_query($conn, "SELECT idModulo FROM modulo WHERE ip = '{$from->remoteAddress}'");
                         if ($modulo->num_rows > 0) {
                             $idModulo = mysqli_fetch_assoc($modulo);
+                            $date = date("Y-m-d H:i:s");
+                            $update = mysqli_query($conn, "UPDATE modulo SET ultimoLiga='{$date}', idWebSocket='{$from->resourceId}' WHERE idModulo = {$idModulo['idModulo']}");
+                            if($update != "1"){
+                                echo "Erro ao atualizar modulo!\n";
+                            }
                             //echo "\nModulo = {$idModulo['idModulo']}\n";
                             $tomada = mysqli_query($conn, "SELECT codTomada, limiteFase, limiteFuga, limiteStandByFase, limiteStandByFuga FROM tomada WHERE codModulo = {$idModulo['idModulo']}");
                             if ($tomada->num_rows > 0) {
@@ -113,17 +114,8 @@ class Comunicacao implements MessageComponentInterface {
                 //echo $mensagem;
                 foreach ($this->clientes as $client) {
                     if ($client->remoteAddress === $ip) {
-                        $this->capturasEnviadas = $this->capturasEnviadas + 1;
-                        echo "Enviou Captura: {$this->capturasEnviadas}\n";
-                        if ($ip === "192.168.1.101") {
-                            $this->modulo1 = $this->modulo1 + 1;
-                            echo "Capturas Enviadas Modulo1: {$this->modulo1}\n";
-                        }
-                        if ($ip === "192.168.1.102") {
-                            $this->modulo2 = $this->modulo2 + 1;
-                            echo "Capturas Enviadas Modulo2: {$this->modulo2}\n";
-                        }
                         $client->send($comando . ":" . $mensagem);
+                        echo "Enviou Comando capture para o IP: {$ip}\n";
                     }
                 }
             }
@@ -173,26 +165,12 @@ class Comunicacao implements MessageComponentInterface {
         } else {
             echo "Mensagem com padrão incorreto!!!\n";
         }
+    }
 
-
-
-
-        /* $numeroClientes = count($this->clients) - 1;
-          echo sprintf('Conexao %d enviou a mensagem "%s" ' . "\n"
-          , $from->resourceId, $msg);
-
-          foreach ($this->clientes as $client) {
-          if ($from !== $client) {
-          // The sender is not the receiver, send to each client connected
-          $client->send($msg);
-          }
-          }
-          foreach ($this->clientes as $client) {
-          if ($client->remoteAddress === "192.168.2.7") {
-          $client->send("Ola!!!\n");
-          }
-          }
-         */
+    public function onBinaryMessage(ConnectionInterface $from, $msg) {
+        // There binary message
+        $data = "";
+        $from->sendBinary($data);
     }
 
     public function checkConnection($ip) {
